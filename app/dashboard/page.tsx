@@ -1,87 +1,96 @@
-"use client"
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LineChart, ShoppingCart, Users, DollarSign } from "lucide-react";
+"use client";
+import { Html5QrcodeScanner } from "html5-qrcode";
+import { useEffect, useState } from "react";
 import {
-  ResponsiveContainer,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  LineChart as RechartsLineChart,
-} from "recharts";
-import { useState } from "react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
-interface RevenueData {
-  name: string;
-  revenue: number;
-}
+const QRScanner = () => {
+  const [scanResult, setScanResult] = useState("");
+  const [pageContent, setPageContent] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-const Dashboard: React.FC = () => {
-  const [data] = useState<RevenueData[]>([
-    { name: "Jan", revenue: 4000 },
-    { name: "Feb", revenue: 3000 },
-    { name: "Mar", revenue: 5000 },
-    { name: "Apr", revenue: 7000 },
-    { name: "May", revenue: 6000 },
-  ]);
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner("reader", {
+      fps: 10,
+      qrbox: { width: 300, height: 300 },
+    });
+
+    scanner.render(
+      async (decodedText) => {
+        setScanResult(decodedText);
+        setIsModalOpen(true);
+
+        // Vérifier si l'URL est valide
+        if (isValidUrl(decodedText)) {
+          try {
+            const response = await fetch(decodedText);
+            const text = await response.text();
+            setPageContent(text.substring(0, 500)); // Limite à 500 caractères
+          } catch (error) {
+            setPageContent("Impossible de récupérer le contenu de cette URL.");
+          }
+        } else {
+          setPageContent("Ce n'est pas une URL valide.");
+        }
+      },
+      (error) => {
+        console.warn(error);
+      }
+    );
+
+    return () => scanner.clear();
+  }, []);
+
+  // Vérifier si une URL est valide
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Total Orders</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-4">
-          <ShoppingCart className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-bold">150</span>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Total Customers</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-4">
-          <Users className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-bold">80</span>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-4">
-          <DollarSign className="h-8 w-8 text-primary" />
-          <span className="text-2xl font-bold">$12,500</span>
-        </CardContent>
-      </Card>
-
-      <Card className="col-span-2 lg:col-span-4">
-        <CardHeader>
-          <CardTitle>Monthly Revenue</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <RechartsLineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#8884d8"
-                strokeWidth={2}
-              />
-            </RechartsLineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+    <div className="flex flex-col items-center gap-4">
+      <div
+        id="reader"
+        className="w-[400px] h-[400px] lg:w-[500px] lg:h-[500px] border-2 border-gray-300"
+      ></div>
+      {/* MODAL */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="slide-in-right">
+          <DialogHeader>
+            <DialogTitle>QR Code Détecté</DialogTitle>
+            <DialogDescription className="text-lg font-semibold">
+              <a
+                href={scanResult}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                {scanResult}
+              </a>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-2 border-t">
+            <h3 className="text-md font-semibold">Contenu récupéré :</h3>
+            <p className="text-sm max-h-60 overflow-auto">{pageContent}</p>
+          </div>
+          <Button onClick={() => setIsModalOpen(false)}>Fermer</Button>
+        </DialogContent>
+      </Dialog>
+      <div>
+        <p className="text-sm max-h-60 overflow-auto">{pageContent}</p>
+      </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default QRScanner;
