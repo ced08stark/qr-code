@@ -15,37 +15,67 @@ const QRScanner = () => {
   const [pageContent, setPageContent] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    const scanner = new Html5QrcodeScanner("reader", {
-      fps: 10,
-      qrbox: { width: 300, height: 300 },
-    });
+useEffect(() => {
+  const scanner = new Html5QrcodeScanner(
+    "reader",
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    false
+  );
 
-    scanner.render(
-      async (decodedText) => {
-        setScanResult(decodedText);
-        setIsModalOpen(true);
+  const onScanSuccess = (decodedText: string) => {
+    setScanResult(decodedText);
+    setIsModalOpen(true);
 
-        // Vérifier si l'URL est valide
-        if (isValidUrl(decodedText)) {
-          try {
-            const response = await fetch(decodedText);
-            const text = await response.text();
-            setPageContent(text.substring(0, 500)); // Limite à 500 caractères
-          } catch (error) {
-            setPageContent("Impossible de récupérer le contenu de cette URL.");
-          }
-        } else {
-          setPageContent("Ce n'est pas une URL valide.");
-        }
-      },
-      (error) => {
-        console.warn(error);
+    // Déplacer la vérification et l'appel de fetchContent à un autre useEffect
+    if (isValidUrl(decodedText)) {
+      setPageContent("Vérification de l'URL...");
+    } else {
+      setPageContent("Ce n'est pas une URL valide.");
+    }
+  };
+
+  const onScanError = (error: any) => {
+    console.warn(error);
+  };
+
+  scanner.render(onScanSuccess, onScanError);
+
+  return () => {
+    scanner.clear(); // Fonction de nettoyage synchrone
+  };
+}, []);
+
+useEffect(() => {
+  if (isValidUrl(scanResult)) {
+    const fetchContent = async (url: string) => {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        setPageContent(text.substring(0, 500));
+      } catch (error) {
+        setPageContent("Impossible de récupérer le contenu de cette URL.");
       }
-    );
+    };
 
-    return () => scanner.clear();
-  }, []);
+    fetchContent(scanResult);
+  }
+}, [scanResult]);
+
+// Fonction asynchrone séparée
+const fetchContent = async (url: string) => {
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    setPageContent(text.substring(0, 500));
+  } catch (error) {
+    setPageContent("Impossible de récupérer le contenu de cette URL.");
+  }
+};
+
+
+
+
+
 
   // Vérifier si une URL est valide
   const isValidUrl = (url: string) => {
